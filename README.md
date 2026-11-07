@@ -13,7 +13,7 @@ Automatically reads https://www.lakesawyerweather.com/LEVEL3.TXT and publishes a
 
 ## Daily operation
 
-The workflow runs at **15:15 UTC** each day (7:15 AM PST / 8:15 AM PDT), subject to GitHub Actions scheduling delays. This UTC schedule does **not** stay at exactly 7:15 AM local time year-round. The webpage fetches `data.json` with a cache-busting query each time it opens, and the Refresh button checks again. If the source is unchanged, the dashboard shows the latest available observation date rather than claiming today's data exists.
+The workflow runs every hour at 15 mins past the hour, subject to GitHub Actions scheduling delays. This UTC schedule does **not** stay at exactly 7:15 AM local time year-round. The webpage fetches `data.json` with a cache-busting query each time it opens, and the Refresh button checks again. If the source is unchanged, the dashboard shows the latest available observation date rather than claiming today's data exists.
 
 To update immediately, open **Actions → Update and publish dashboard → Run workflow**. Wait for the deployment to finish, then tap Refresh in the dashboard.
 
