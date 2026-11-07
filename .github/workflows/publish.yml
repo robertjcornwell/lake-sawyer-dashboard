@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # 07:15 PST / 08:15 PDT; choose a time after source updates.
-    - cron: '15 15 * * *'
+    - cron: '15 * * * *'
 
 permissions:
   contents: read
