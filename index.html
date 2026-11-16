@@ -17,6 +17,17 @@
 </section>
 <div class="error" id="error"></div>
 <section class="panel"><h2>Compare years</h2><div class="controls"><label for="years">Years</label><select id="years"><option value="all">All years</option><option value="recent">Latest vs previous</option><option value="current">Latest only</option></select><label><input id="average" type="checkbox" checked> Historical average*</label><button id="refresh" type="button">Refresh</button></div><div id="chart" class="chart" role="img" aria-label="Interactive lake level chart"></div></section>
+<section class="panel" style="margin-top:16px"><h2>Rainfall & lake response</h2>
+<div class="controls">
+<label for="rain-period">View</label><select id="rain-period"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">365 days</option><option value="all">All data</option></select>
+<label for="rain-window">Rainfall</label><select id="rain-window"><option value="1">Daily</option><option value="3">3-day total</option><option value="7" selected>7-day total</option><option value="14">14-day total</option></select>
+<label for="lag">Lake response lag</label><select id="lag"><option value="0">Same day</option><option value="1" selected>1 day</option><option value="2">2 days</option><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select>
+</div>
+<div id="rain-chart" class="chart" role="img" aria-label="Rainfall and lake level over time"></div>
+<div class="stats" style="margin:8px 8px 12px"><div class="card"><div class="label">Rainfall in last 7 complete days</div><div class="number" id="rain7">—</div><div class="sub">Inches • modeled estimate</div></div><div class="card"><div class="label">Rainfall vs lake change</div><div class="number" id="corr">—</div><div class="sub" id="corr-detail">Pearson r</div></div></div>
+<div id="scatter-chart" class="chart" role="img" aria-label="Rainfall versus lake-level change scatter plot"></div>
+<p class="foot" style="margin:0 10px">Rainfall is an <a href="https://open-meteo.com/en/docs/historical-weather-api" target="_blank" rel="noopener">Open-Meteo</a> modeled estimate near Lake Sawyer, not the station rain gauge. Historical rainfall can be revised. Correlation compares the selected rainfall accumulation ending on a given day with the change in lake level from that day to the selected number of days later; only exact daily lake observations are used. Correlation does not establish causation. Recent precipitation may differ in methodology from historical estimates.</p>
+</section>
 <p class="foot" id="updated">—</p><p class="foot">* Historical statistics use available earlier years only (excluding the latest year), on the same month and day. Missing measurements are not filled in. Readings are shown in source units; the source does not specify a verified unit or datum. The change is between available readings and may span more than one day. <a href="https://www.lakesawyerweather.com/LEVEL3.TXT" target="_blank" rel="noopener">Original data</a>.</p>
 </main>
 <script>
@@ -51,13 +62,47 @@ window.addEventListener('DOMContentLoaded',()=>{
   $('range').textContent=historical.length?Math.min(...historical).toFixed(1)+' to '+Math.max(...historical).toFixed(1):'—';
   $('updated').textContent='Data generated: '+new Date(dataset.generated_at_utc).toLocaleString()+' • Latest observation: '+readable(latest.date);
   $('status').textContent='Updated '+readable(latest.date);
-  draw();
+  draw();drawRain();
  }
  async function load(){
   $('error').style.display='none';$('status').textContent='Refreshing…';
   try{const res=await fetch('data.json?v='+Date.now(),{cache:'no-store'});if(!res.ok)throw Error('HTTP '+res.status);const json=await res.json();if(!Array.isArray(json.readings)||!json.readings.length)throw Error('No readings found');json.readings.sort((a,b)=>a.date.localeCompare(b.date));dataset=json;populate();}
   catch(e){$('error').textContent='Could not load updated readings: '+e.message;$('error').style.display='block';$('status').textContent='Update unavailable';}
  }
+ function drawRain(){
+  if(!dataset||!window.Plotly)return;
+  const rainfall=dataset.rainfall||[],r=dataset.readings;
+  if(!rainfall.length){$('rain7').textContent='Unavailable';$('corr').textContent='—';return;}
+  const rainMap=new Map(rainfall.map(v=>[v.date,v.rain_in]));
+  const levelMap=new Map(r.map(v=>[v.date,v.level]));
+  const days=Number($('rain-period').value),windowDays=Number($('rain-window').value),lag=Number($('lag').value);
+  const last=r.at(-1).date;
+  const add=(date,offset)=>{const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+offset);return d.toISOString().slice(0,10)};
+  const start=days?add(last,-days+1):r[0].date;
+  const rolling=(date,n)=>{let total=0;for(let k=0;k<n;k++){const v=rainMap.get(add(date,-k));if(v===undefined)return null;total+=v;}return total;};
+  const dates=[],levels=[],rain=[];
+  for(let d=start;d<=last;d=add(d,1)){
+    dates.push(d);levels.push(levelMap.get(d)??null);rain.push(rolling(d,windowDays));
+  }
+  const lastComplete=add(last,-1),last7=rolling(lastComplete,7);
+  $('rain7').textContent=last7===null?'—':last7.toFixed(2)+'″';
+  Plotly.react('rain-chart',[
+   {x:dates,y:rain,name:windowDays===1?'Daily precipitation':windowDays+'-day precipitation',type:'bar',marker:{color:'#5799d1',opacity:.65},yaxis:'y2',hovertemplate:'%{x}<br>%{y:.2f} in<extra>Rain</extra>'},
+   {x:dates,y:levels,name:'Lake level',type:'scatter',mode:'lines',connectgaps:false,line:{color:'#52e1ce',width:2.5},hovertemplate:'%{x}<br>%{y:.2f}<extra>Lake level</extra>'}
+  ],{paper_bgcolor:'#132337',plot_bgcolor:'#132337',font:{color:'#c7d8e7',size:11},margin:{l:48,r:50,t:20,b:45},xaxis:{type:'date',gridcolor:'#25384c'},yaxis:{title:'Lake level (source units)',gridcolor:'#304157',zerolinecolor:'#526579'},yaxis2:{title:'Rain (in)',overlaying:'y',side:'right',rangemode:'tozero',showgrid:false},barmode:'overlay',legend:{orientation:'h',y:-.2},hovermode:'x unified'}, {responsive:true,displaylogo:false});
+  const xs=[],ys=[],scDates=[];
+  for(let d=start;d<=last;d=add(d,1)){
+    const amount=rolling(d,windowDays),a=levelMap.get(d),b=levelMap.get(add(d,lag+1));
+    if(amount!==null&&a!==undefined&&b!==undefined){xs.push(amount);ys.push(b-a);scDates.push(d);}
+  }
+  const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+  let corr=null;
+  if(xs.length>=10){const mx=mean(xs),my=mean(ys);let num=0,dx=0,dy=0;for(let i=0;i<xs.length;i++){const x=xs[i]-mx,y=ys[i]-my;num+=x*y;dx+=x*x;dy+=y*y;}if(dx>0&&dy>0)corr=num/Math.sqrt(dx*dy);}
+  $('corr').textContent=corr===null?'—':corr.toFixed(2);
+  $('corr-detail').textContent=`Pearson r • ${xs.length} paired days • ${lag+1}-day level change`;
+  Plotly.react('scatter-chart',[{x:xs,y:ys,text:scDates,type:'scatter',mode:'markers',name:'Daily observations',marker:{color:'#73c4ed',opacity:.65,size:7},hovertemplate:'%{text}<br>Rain: %{x:.2f} in<br>Lake change: %{y:+.2f}<extra></extra>'}],{paper_bgcolor:'#132337',plot_bgcolor:'#132337',font:{color:'#c7d8e7',size:11},margin:{l:58,r:15,t:20,b:55},xaxis:{title:windowDays+'-day precipitation (in)',gridcolor:'#304157'},yaxis:{title:(lag+1)+'-day lake change',gridcolor:'#304157',zerolinecolor:'#526579'},showlegend:false}, {responsive:true,displaylogo:false});
+ }
+ ['rain-period','rain-window','lag'].forEach(id=>$(id).addEventListener('change',drawRain));
  $('years').addEventListener('change',draw);$('average').addEventListener('change',draw);$('refresh').addEventListener('click',load);
  // Chart library loaded with defer; DOMContentLoaded runs after deferred scripts.
  load();

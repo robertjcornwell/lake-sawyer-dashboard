@@ -13,7 +13,7 @@ Automatically reads https://www.lakesawyerweather.com/LEVEL3.TXT and publishes a
 
 ## Daily operation
 
-The workflow runs every hour at 15 mins past the hour, subject to GitHub Actions scheduling delays. This UTC schedule does **not** stay at exactly 7:15 AM local time year-round. The webpage fetches `data.json` with a cache-busting query each time it opens, and the Refresh button checks again. If the source is unchanged, the dashboard shows the latest available observation date rather than claiming today's data exists.
+The workflow runs at **15:15 UTC** each day (7:15 AM PST / 8:15 AM PDT), subject to GitHub Actions scheduling delays. This UTC schedule does **not** stay at exactly 7:15 AM local time year-round. The webpage fetches `data.json` with a cache-busting query each time it opens, and the Refresh button checks again. If the source is unchanged, the dashboard shows the latest available observation date rather than claiming today's data exists.
 
 To update immediately, open **Actions → Update and publish dashboard → Run workflow**. Wait for the deployment to finish, then tap Refresh in the dashboard.
 
@@ -25,3 +25,9 @@ To update immediately, open **Actions → Update and publish dashboard → Run w
 - The chart uses Plotly loaded from a CDN, so the iPhone needs internet access.
 - GitHub Pages is publicly accessible. Do not store passwords or other secrets in the repository.
 - This uses GitHub's official Pages deployment workflow and does not need a commit on every run.
+
+## Rainfall correlation (new)
+
+`update_data.py` now downloads modeled daily precipitation from Open-Meteo (ERA5 archive, with recent forecast-model estimates). The chart displays lake levels alongside 1/3/7/14-day accumulated precipitation and a Pearson correlation scatter plot for lake-level change after 1–8 days. Data is approximate, not the local rain gauge. The latest days can be revised. No API key is required for noncommercial use.
+
+To deploy, replace `index.html` and `update_data.py` in the GitHub repository, commit to `main`, then run **Actions → Update and publish dashboard → Run workflow**. No changes to `publish.yml` are needed; your existing hourly schedule is retained.
