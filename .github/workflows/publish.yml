@@ -3,8 +3,8 @@ name: Update and publish dashboard
 on:
   workflow_dispatch:
   schedule:
-    # 07:15 PST / 08:15 PDT; choose a time after source updates.
-    - cron: '15 15 * * *'
+    # Hourly, at minute 17.
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -28,6 +28,12 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Restore rainfall cache
+        uses: actions/cache@v4
+        with:
+          path: rain-cache.json
+          key: rainfall-v2-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: rainfall-v2-
       - name: Fetch lake levels
         run: python update_data.py
       - name: Assemble site
