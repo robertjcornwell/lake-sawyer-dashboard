@@ -17,7 +17,7 @@
 </section>
 <div class="error" id="error"></div>
 <section class="panel"><h2>Compare years</h2><div class="controls"><label for="years">Years</label><select id="years"><option value="all">All years</option><option value="recent">Latest vs previous</option><option value="current">Latest only</option></select><label><input id="average" type="checkbox" checked> Historical average*</label><button id="refresh" type="button">Refresh</button></div><div id="chart" class="chart" role="img" aria-label="Interactive lake level chart"></div></section>
-<section class="panel" style="margin-top:16px"><h2>Rainfall & lake response</h2>
+<section class="panel" style="margin-top:16px"><h2>Rainfall & lake response</h2><p class="foot" id="rain-status" style="margin:0 10px"></p>
 <div class="controls">
 <label for="rain-period">View</label><select id="rain-period"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="365">365 days</option><option value="all">All data</option></select>
 <label for="rain-window">Rainfall</label><select id="rain-window"><option value="1">Daily</option><option value="3">3-day total</option><option value="7" selected>7-day total</option><option value="14">14-day total</option></select>
@@ -72,6 +72,7 @@ window.addEventListener('DOMContentLoaded',()=>{
  function drawRain(){
   if(!dataset||!window.Plotly)return;
   const rainfall=dataset.rainfall||[],r=dataset.readings;
+  $('rain-status').textContent=(dataset.rainfall_status==='partial or cached'?'Rainfall service partially unavailable; showing available data. ':'')+'Recent rainfall fetched: '+(dataset.rainfall_updated_at_utc?new Date(dataset.rainfall_updated_at_utc).toLocaleString():'Unavailable')+' • Latest rainfall date: '+(rainfall.length?rainfall[rainfall.length-1].date:'Unavailable');
   if(!rainfall.length){$('rain7').textContent='Unavailable';$('corr').textContent='—';return;}
   const rainMap=new Map(rainfall.map(v=>[v.date,v.rain_in]));
   const levelMap=new Map(r.map(v=>[v.date,v.level]));
